@@ -41,33 +41,19 @@
       <ul>
         <li>Azure subscription with resource creation rights.</li>
         <li>Visual Studio Code and Python 3.10+.</li>
-        <li>Azure CLI authenticated with your lab subscription.</li>
+        <li>Access to Azure portal at portal.azure.com.</li>
       </ul>
-      <pre><code>az login
-az account show --output table</code></pre>
+      <div class="note">Sign in to Azure portal with the account that has your lab subscription.</div>
 
       <h2 id="provision">Create Azure resources</h2>
-      <p>Complete the values and run the commands.</p>
-      <pre><code>$RG = "&lt;your-resource-group&gt;"
-$LOC = "&lt;your-region&gt;"
-$FOUND = "&lt;unique-foundry-name&gt;"
-$SEARCH = "&lt;unique-search-name&gt;"
-
-az group create --name $RG --location $LOC
-
-az cognitiveservices account create `
-  --name $FOUND `
-  --resource-group $RG `
-  --location $LOC `
-  --kind AIServices `
-  --sku S0 `
-  --yes
-
-az search service create `
-  --name $SEARCH `
-  --resource-group $RG `
-  --location $LOC `
-  --sku basic</code></pre>
+      <p>Create all resources manually in Azure portal.</p>
+      <ol>
+        <li>Open portal.azure.com and search for <b>Resource groups</b>, then select <b>Create</b>.</li>
+        <li>Set Resource group name to <b>&lt;your-resource-group&gt;</b> and choose a region.</li>
+        <li>Search for <b>Azure AI services</b> and create a new resource in the same group and region. Use a unique name.</li>
+        <li>Search for <b>Azure AI Search</b> and create a new search service with <b>Basic</b> SKU in the same group and region.</li>
+        <li>Open Azure AI Foundry (ai.azure.com), create/open a project, and connect it to your Azure AI services resource.</li>
+      </ol>
 
       <h2 id="deploy-models">Deploy models</h2>
       <p>In Azure AI Foundry portal, deploy:</p>
@@ -78,6 +64,11 @@ az search service create `
 
       <h2 id="credentials">Fill credentials</h2>
       <p>Collect and fill these values in .env:</p>
+      <ol>
+        <li>Foundry endpoint: Azure AI Foundry project > Overview > Project endpoint.</li>
+        <li>OpenAI key: Azure AI services resource > Keys and Endpoint.</li>
+        <li>Search endpoint and key: Azure AI Search resource > Keys.</li>
+      </ol>
       <pre><code>AZURE_FOUNDRY_ENDPOINT=___________________________________________
 AZURE_OPENAI_DEPLOYMENT=__________________________________________
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT=________________________________
