@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lab Task - Build a RAG Agent with Azure AI Foundry and Azure AI Search</title>
+  <link rel="stylesheet" href="../assets/lab.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">Azure AI Hands-on Lab</div>
+      <div class="pill">Student Version</div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <h2>On this page</h2>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#before-you-start">Before you start</a></li>
+        <li><a href="#provision">Create Azure resources</a></li>
+        <li><a href="#deploy-models">Deploy models</a></li>
+        <li><a href="#credentials">Fill credentials</a></li>
+        <li><a href="#env">Create virtual environment</a></li>
+        <li><a href="#code-tasks">Code tasks to complete</a></li>
+        <li><a href="#run">Run and validate output</a></li>
+      </ol>
+    </aside>
+
+    <main class="content">
+      <h1 id="overview">Lab Task: Build a RAG Agent End-to-End</h1>
+      <p>
+        Complete this exercise by provisioning Azure services, deploying models, filling environment values,
+        and finishing key parts of the RAG pipeline code.
+      </p>
+      <div class="note">Estimated time: 50 minutes.</div>
+
+      <h2 id="before-you-start">Before you start</h2>
+      <ul>
+        <li>Azure subscription with resource creation rights.</li>
+        <li>Visual Studio Code and Python 3.10+.</li>
+        <li>Azure CLI authenticated with your lab subscription.</li>
+      </ul>
+      <pre><code>az login
+az account show --output table</code></pre>
+
+      <h2 id="provision">Create Azure resources</h2>
+      <p>Complete the values and run the commands.</p>
+      <pre><code>$RG = "&lt;your-resource-group&gt;"
+$LOC = "&lt;your-region&gt;"
+$FOUND = "&lt;unique-foundry-name&gt;"
+$SEARCH = "&lt;unique-search-name&gt;"
+
+az group create --name $RG --location $LOC
+
+az cognitiveservices account create `
+  --name $FOUND `
+  --resource-group $RG `
+  --location $LOC `
+  --kind AIServices `
+  --sku S0 `
+  --yes
+
+az search service create `
+  --name $SEARCH `
+  --resource-group $RG `
+  --location $LOC `
+  --sku basic</code></pre>
+
+      <h2 id="deploy-models">Deploy models</h2>
+      <p>In Azure AI Foundry portal, deploy:</p>
+      <ul>
+        <li>Chat model: gpt-4o (deployment name: __________________)</li>
+        <li>Embedding model: text-embedding-3-small (deployment name: __________________)</li>
+      </ul>
+
+      <h2 id="credentials">Fill credentials</h2>
+      <p>Collect and fill these values in .env:</p>
+      <pre><code>AZURE_FOUNDRY_ENDPOINT=___________________________________________
+AZURE_OPENAI_DEPLOYMENT=__________________________________________
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=________________________________
+AZURE_SEARCH_ENDPOINT=____________________________________________
+AZURE_SEARCH_INDEX=benefits
+AZURE_OPENAI_API_KEY=_____________________________________________
+AZURE_SEARCH_API_KEY=_____________________________________________</code></pre>
+
+      <div class="todo">Task: Do not commit real credentials to source control.</div>
+
+      <h2 id="env">Create virtual environment</h2>
+      <pre><code>python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt</code></pre>
+
+      <h2 id="code-tasks">Code tasks to complete</h2>
+      <p>Complete these critical RAG sections in your Python files.</p>
+
+      <h3>Task 1: Embedding generation loop (ingest.py)</h3>
+      <pre><code>for i, chunk in enumerate(all_chunks):
+    # TODO: generate and assign embedding to content_vector
+    chunk["content_vector"] = __________________________________
+
+    # TODO: print progress every 50 chunks
+    if _________________________________________________:
+        print(f"{i + 1}/{len(all_chunks)} embeddings generated")</code></pre>
+
+      <h3>Task 2: Hybrid search call (main.py)</h3>
+      <pre><code>results = search_client.search(
+    search_text=________________,
+    vector_queries=[VectorizedQuery(vector=_______________, fields="content_vector")],
+    select=["title", "category", "content"],
+    top=____,
+)</code></pre>
+
+      <h3>Task 3: Context-building prompt (main.py)</h3>
+      <pre><code>context = "\n\n".join(
+    _________________________________________________
+)
+messages = [
+    {"role": "system", "content": SYSTEM_PROMPT},
+    {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+]</code></pre>
+
+      <h3>Task 4: Full execution</h3>
+      <pre><code>python ingest.py
+python main.py</code></pre>
+
+      <h2 id="run">Run and validate output</h2>
+      <p>Ask two questions from benefit documents and verify:</p>
+      <ul>
+        <li>Retrieved chunks are printed first.</li>
+        <li>The answer references source document titles.</li>
+        <li>Answer says it lacks information when context is missing.</li>
+      </ul>
+
+      <div class="success">Expected output: A grounded answer plus source-specific context lines in terminal.</div>
+    </main>
+  </div>
+</body>
+</html>

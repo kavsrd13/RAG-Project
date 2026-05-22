@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Build a RAG Agent with Azure AI Foundry and Azure AI Search</title>
+  <link rel="stylesheet" href="../assets/lab.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">Azure AI Hands-on Lab</div>
+      <div class="pill">Instructor Version</div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <h2>On this page</h2>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#before-you-start">Before you start</a></li>
+        <li><a href="#provision">Create Azure resources</a></li>
+        <li><a href="#deploy-models">Deploy chat and embedding models</a></li>
+        <li><a href="#credentials">Capture credentials</a></li>
+        <li><a href="#env">Local environment setup</a></li>
+        <li><a href="#code">Complete and review code</a></li>
+        <li><a href="#run">Run and test</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#cleanup">Clean up</a></li>
+      </ol>
+    </aside>
+
+    <main class="content">
+      <h1 id="overview">Build a RAG Agent with Azure AI Foundry and Azure AI Search</h1>
+      <p>
+        In this exercise, you build a Retrieval Augmented Generation (RAG) assistant by combining
+        Azure OpenAI models from Azure AI Foundry with Azure AI Search.
+      </p>
+      <p>Tasks performed in this exercise:</p>
+      <ul>
+        <li>Create Azure AI Foundry, Azure AI Search, and a resource group.</li>
+        <li>Deploy a chat model and embedding model.</li>
+        <li>Configure credentials in an environment file.</li>
+        <li>Create a Python virtual environment and install dependencies.</li>
+        <li>Run ingestion to index PDF chunks and embeddings.</li>
+        <li>Run the RAG agent and validate grounded responses.</li>
+      </ul>
+      <div class="note">Estimated time: 50 minutes.</div>
+
+      <h2 id="before-you-start">Before you start</h2>
+      <p>To complete this lab, you need:</p>
+      <ul>
+        <li>An Azure subscription with permissions to create resources.</li>
+        <li>Visual Studio Code.</li>
+        <li>Azure CLI installed and signed in.</li>
+        <li>Python 3.10 or later.</li>
+      </ul>
+
+      <h3>Sign in to Azure</h3>
+      <pre><code>az login
+az account show --output table</code></pre>
+
+      <h2 id="provision">Create Azure resources</h2>
+      <p>Create a resource group, Azure AI Foundry resource, and Azure AI Search service.</p>
+
+      <h3>Set working variables (PowerShell)</h3>
+      <pre><code>$RG = "rg-rag-lab"
+$LOC = "eastus"
+$FOUND = "foundry-rag-lab-001"
+$SEARCH = "srchraglab001"
+$PROJECT = "rag-project"
+
+az group create --name $RG --location $LOC</code></pre>
+
+      <h3>Create Azure AI Foundry resource</h3>
+      <pre><code>az cognitiveservices account create `
+  --name $FOUND `
+  --resource-group $RG `
+  --location $LOC `
+  --kind AIServices `
+  --sku S0 `
+  --yes</code></pre>
+
+      <h3>Create Azure AI Search</h3>
+      <pre><code>az search service create `
+  --name $SEARCH `
+  --resource-group $RG `
+  --location $LOC `
+  --sku basic</code></pre>
+
+      <div class="warning">
+        AI Foundry projects can also be created in the Azure AI Foundry portal. If your tenant requires portal onboarding,
+        create the project there and use its endpoint in the next sections.
+      </div>
+
+      <h2 id="deploy-models">Deploy chat and embedding models</h2>
+      <p>In Azure AI Foundry portal, open your project and deploy two models:</p>
+      <table>
+        <thead>
+          <tr><th>Model purpose</th><th>Model</th><th>Deployment name</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Chat generation</td><td>gpt-4o</td><td>gpt-4o</td></tr>
+          <tr><td>Embeddings</td><td>text-embedding-3-small</td><td>text-embedding-3-small</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="credentials">Capture credentials</h2>
+      <p>Collect these values from portal/CLI:</p>
+      <ul>
+        <li>Foundry project endpoint.</li>
+        <li>Azure OpenAI key (or use Entra identity).</li>
+        <li>Search endpoint and admin key.</li>
+        <li>Search index name (example: benefits).</li>
+      </ul>
+
+      <h3>Get Search keys from CLI</h3>
+      <pre><code>az search admin-key show --service-name $SEARCH --resource-group $RG --output table</code></pre>
+
+      <h2 id="env">Local environment setup</h2>
+      <h3>Create Python virtual environment</h3>
+      <pre><code>python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements.txt</code></pre>
+
+      <h3>Configure .env</h3>
+      <pre><code>AZURE_FOUNDRY_ENDPOINT=https://&lt;your-foundry-resource&gt;.services.ai.azure.com/api/projects/rag-project
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
+AZURE_SEARCH_ENDPOINT=https://&lt;your-search-service&gt;.search.windows.net
+AZURE_SEARCH_INDEX=benefits
+AZURE_OPENAI_API_KEY=&lt;openai-key&gt;
+AZURE_SEARCH_API_KEY=&lt;search-admin-key&gt;</code></pre>
+
+      <div class="warning">Never commit real secret values to git. Keep .env local.</div>
+
+      <h2 id="code">Complete and review code</h2>
+      <p>The project already contains complete files: ingest.py and main.py.</p>
+
+      <h3>Important code section 1: Build embeddings and index documents</h3>
+      <pre><code>sample_embedding = get_embedding(all_chunks[0]["content"])
+print(f"dimensions : {len(sample_embedding)}")
+
+for i, chunk in enumerate(all_chunks):
+    chunk["content_vector"] = get_embedding(chunk["content"])
+    if (i + 1) % 50 == 0 or (i + 1) == len(all_chunks):
+        print(f"{i + 1}/{len(all_chunks)} embeddings generated")</code></pre>
+
+      <h3>Important code section 2: Hybrid retrieval</h3>
+      <pre><code>results = search_client.search(
+    search_text=question,
+    vector_queries=[VectorizedQuery(vector=question_vector, fields="content_vector")],
+    select=["title", "category", "content"],
+    top=top,
+)</code></pre>
+
+      <h3>Important code section 3: Grounded prompting</h3>
+      <pre><code>context = "\n\n".join(f"--- {c['title']} ---\n{c['content']}" for c in chunks)
+messages = [
+    {"role": "system", "content": SYSTEM_PROMPT},
+    {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
+]</code></pre>
+
+      <h2 id="run">Run and test</h2>
+      <h3>Ingest documents</h3>
+      <pre><code>python ingest.py</code></pre>
+
+      <h3>Run chat assistant</h3>
+      <pre><code>python main.py</code></pre>
+
+      <h3>Sample test prompts</h3>
+      <ul>
+        <li>What is covered in Northwind Standard Benefits?</li>
+        <li>Which document describes employee perks?</li>
+      </ul>
+
+      <div class="success">
+        Expected behavior: terminal prints retrieved chunks, then a final answer that references source documents.
+      </div>
+
+      <h2 id="troubleshooting">Troubleshooting</h2>
+      <ul>
+        <li>If authentication fails, check AZURE_OPENAI_API_KEY and AZURE_SEARCH_API_KEY values.</li>
+        <li>If index not found, run ingest.py again and confirm AZURE_SEARCH_INDEX matches the created index.</li>
+        <li>If model errors occur, verify deployment names exactly match .env values.</li>
+      </ul>
+
+      <h2 id="cleanup">Clean up</h2>
+      <pre><code>az group delete --name $RG --yes --no-wait</code></pre>
+    </main>
+  </div>
+</body>
+</html>
