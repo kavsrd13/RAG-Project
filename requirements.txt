@@ -1,0 +1,5 @@
+openai>=1.30.0
+azure-search-documents>=11.4.0
+azure-identity>=1.19.0
+python-dotenv>=1.0.0
+pypdf>=4.0.0
